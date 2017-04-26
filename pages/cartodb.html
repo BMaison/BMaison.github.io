@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		<title>Animation Seismes</title>
+
+		<link rel="icon" type="image/png" href="../images/logo.png" />
+
+		<!-- Latest compiled and minified CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+		<!-- Optional theme -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+		<!-- Boostrap dépend de Jquery -->
+
+		<script	src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+		<!-- Latest compiled and minified JavaScript -->
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+
+		<link rel="stylesheet" href="../style/style.css">
+		<link rel="stylesheet" href="../style/d3.slider.css"/>  
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css">
+		<script type="text/javascript" src="https://d3js.org/d3.v3.min.js"></script>
+		<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+		<script src="http://libs.cartocdn.com/cartodb.js/v2/cartodb.js"></script>
+		
+		<style type="text/css">
+			body{
+				background:white;
+			}
+			svg {
+			  width: 960px;
+			  height: 500px;
+			}
+			svg:active {
+			  cursor: move;
+			  cursor: -moz-grabbing;
+			  cursor: -webkit-grabbing;
+			}
+			circle {
+			  fill: none;
+			  stroke-width: 1.5px;
+			}
+			#first_layer path {
+			  fill-opacity:0.8;
+			  fill: none;
+			  stroke: black;
+			  stroke-width:0.5px;
+			  stroke-linecap: round;
+			  stroke-linejoin: round;
+			}
+		</style>
+	</head>
+	
+	<body>
+		<nav class="navbar navbar-default">
+			<div class="container-fluid" style="padding:0px;">
+				<div class="navbar-header"><img src="../images/logo.png" alt="Tsunami predict" height="45px" /></div>
+				<ul class="nav navbar-nav">
+					<li class=""><a href="../index.html">Séismes</a></li>
+					<li class=""><a href='24H.html'>24H</a></li>
+					<li class=""><a href="heatmap.html">Heatmap</a></li>
+					<li class="active"><a href="cartodb.html">Animation</a></li>
+					<li class=""><a href="alerte.php">Alerte</a></li>
+				</ul>
+			</div>
+		</nav>		
+		
+		<script type="text/javascript">
+			var first_layer = 'd3_world_borders';
+
+			var sql = new cartodb.SQL({ user: 'viz2', format: 'geojson', dp: 5});
+
+			// Define our SVG element outside our SQL functions
+			var svg = d3.select("body")
+					.append("svg")
+					.call(d3.behavior.zoom()
+						.on("zoom", redraw))
+					.append("g");
+
+			// Our projection.
+			var xy = d3.geo.mercator();
+				xy.scale(500);
+				xy.center([-90,30]);
+
+			svg.append("g").attr("id", "first_layer");
+
+			var path = d3.geo.path();
+
+			sql.execute("SELECT ST_Simplify(the_geom,0.01) as the_geom FROM {{table_name}} WHERE the_geom IS NOT NULL", {table_name: first_layer})
+			  .done(function(collection) {
+				  svg.select("#first_layer")
+					.selectAll("path")
+					  .data(collection.features)
+					.enter().append("path")
+					.attr("d", path.projection(xy));
+			  })
+			  .error(function(errors) {
+				// console.log('Errors! Oh no!')
+			  });
+
+			var earthquakes;
+			sql.execute("SELECT the_geom, quakedate, magnitude FROM {{table_name}} WHERE the_geom IS NOT NULL ORDER BY quakedate ASC", {table_name: 'earthquaked3'})
+			  .done(function(collection) {
+				earthquakes = collection.features;
+				quake();
+			  });
+
+			var i = 0;
+			function quake() {
+			  var c = earthquakes[i];
+			  svg.append("circle")
+				  .attr("cx", xy(c.geometry.coordinates)[0])
+				  .attr("cy", xy(c.geometry.coordinates)[1])
+				  .attr("r", 1)
+				  .style("fill", "red")
+				  .style("fill-opacity", 0.5)
+				  .style("stroke", "red")
+				  .style("stroke-opacity", 0.5)
+				.transition()
+				  .duration(2000)
+				  .ease(Math.sqrt)
+				  .attr("r", c.properties.magnitude * 20)
+				  .style("fill-opacity", 1e-6)
+				  .style("stroke-opacity", 1e-6)
+				  .remove()
+				setTimeout(quake, 200);
+			  i++;
+			  if (earthquakes.length==i) i = 0;
+			}
+
+			function redraw() {
+			  svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+			}
+		</script>
+	
+		<!-- footer-->
+		<div class="well well-sm">Copyright Tsunami Power</div>
+	</body>
+</html>

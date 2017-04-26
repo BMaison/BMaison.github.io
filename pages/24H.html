@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Séismes J-24H</title>
+
+		<link rel="icon" type="image/png" href="../images/logo.png" />
+
+		<!-- Latest compiled and minified CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+		<!-- Optional theme -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+		<!-- Boostrap dépend de Jquery -->
+
+		<script	src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+		<!-- Latest compiled and minified JavaScript -->
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+
+		<link rel="stylesheet" href="../style/style.css">
+		<link rel="stylesheet" href="../style/d3.slider.css"/>  
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css">
+		<script type="text/javascript" src="https://d3js.org/d3.v3.min.js"></script>
+		<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+	</head>
+
+	<body>
+		<nav class="navbar navbar-default">
+			<div class="container-fluid" style="padding:0px;">
+				<div class="navbar-header"><img src="../images/logo.png" alt="Tsunami predict" height="45px" /></div>
+				<ul class="nav navbar-nav">
+					<li class=""><a href="../index.html">Séismes</a></li>
+					<li class="active"><a href='24H.html'>24H</a></li>
+					<li class=""><a href="heatmap.html">Heatmap</a></li>
+					<li class=""><a href="cartodb.html">Animation</a></li>
+					<li class=""><a href="alerte.php">Alerte</a></li>
+				</ul>
+			</div>
+		</nav>		
+
+		<div id="map" style="width:100%; height:500px;"></div>
+		
+		<script>
+			var map = new L.Map("map", {
+				center: [18,-72],
+				zoom: 4
+			})
+			.addLayer(new L.TileLayer("http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"));
+
+			var svg = d3.select(map.getPanes().overlayPane).append("svg"),
+			svgCircles = svg.append("g").attr("class", "leaflet-zoom-hide");
+
+			d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson", function(error, myPoints) {
+				if (error) throw error;
+
+				var transform = d3.geo.transform({
+					point: projectPoint
+				}),
+				path = d3.geo.path().projection(transform);
+
+				var bounds = path.bounds(myPoints),
+				topLeft = bounds[0],
+				bottomRight = bounds[1];
+
+					myPoints.features.forEach(function(d) {
+					d.LatLng = new L.LatLng(d.geometry.coordinates[1],
+					d.geometry.coordinates[0]);
+				});
+
+				var circles = svgCircles.selectAll("circle")
+				.data(myPoints.features)
+				.enter()
+				.append("circle")
+				.attr("r", 10)
+				.style("fill", "red")
+				.attr("fill-opacity", 0.5);
+
+				// Use Leaflet to implement a D3 geometric transformation.
+				function projectPoint(x, y) {
+					var point = map.latLngToLayerPoint(new L.LatLng(y, x));
+					this.stream.point(point.x, point.y);
+				}
+
+				function update() {
+					circles.attr("cx", function(d) {
+						return map.latLngToLayerPoint(d.LatLng).x;
+					});
+					circles.attr("cy", function(d) {
+						return map.latLngToLayerPoint(d.LatLng).y;
+					});
+					svg.attr("width", bottomRight[0] - topLeft[0])
+					.attr("height", bottomRight[1] - topLeft[1])
+					.style("left", topLeft[0] + "px")
+					.style("top", topLeft[1] + "px");
+
+					svgCircles.attr("transform", "translate(" + -topLeft[0] + "," + -topLeft[1] + ")");
+				}
+
+				map.on("viewreset", update);
+				update();
+			})
+		</script>
+  
+		<!-- footer-->
+		<div class="well well-sm">Copyright Tsunami Power</div>
+	</body>
+</html>
